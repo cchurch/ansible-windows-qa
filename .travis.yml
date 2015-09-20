@@ -1,0 +1,10 @@
+language: python
+python: '2.7'
+install:
+- pip install -r requirements.txt
+- pip install ssl-opt-out
+- ansible-galaxy install -i -r roles/requirements.yml -p roles/
+script:
+- py.test -v
+after_failure:
+- ansible-playbook -i inventory_cleanup -t cleanup -v test-instances.yml

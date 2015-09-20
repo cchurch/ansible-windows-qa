@@ -1,0 +1,5 @@
+__pycache__
+.cache
+roles/cchurch.*
+inventory.windows-qa
+test_id_rsa*

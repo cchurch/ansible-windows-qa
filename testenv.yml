@@ -1,0 +1,76 @@
+---
+
+- name: prepare test environment
+  hosts: local
+  vars:
+    win_ec2_test_name: 'windows-qa'
+  tasks:
+    - set_fact:
+        win_ec2_region: 'us-east-1'
+        win_ec2_inventory_dest: '{{playbook_dir}}/inventory.{{win_ec2_test_name}}'
+        win_ec2_key_name: '{{win_ec2_test_name}}'
+        win_ec2_name_prefix: '{{win_ec2_test_name}}'
+        win_ec2_security_group: '{{win_ec2_test_name}}'
+        win_ec2_public_key_path: '{{playbook_dir}}/test_id_rsa.pub'
+        win_ec2_private_key_path: '{{playbook_dir}}/test_id_rsa'
+      tags: setup
+    - name: remove generated windows inventory file
+      file:
+        path: '{{win_ec2_inventory_dest}}'
+        state: absent
+      tags: setup
+    - name: create key pair for testing
+      command: >
+        ssh-keygen -t rsa -N "" -f {{win_ec2_private_key_path|quote}}
+      args:
+        creates: '{{win_ec2_private_key_path}}'
+      tags: setup
+
+- name: create windows instances in ec2
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: cchurch.win-ec2
+      tags: setup
+
+- name: ping new windows instances added with add_host
+  hosts: windows
+  gather_facts: false
+  tasks:
+    - name: ping windows instance
+      action: win_ping
+      tags: setup
+
+- name: destroy windows instances in ec2
+  hosts: local
+  gather_facts: false
+  roles:
+    - role: cchurch.win-ec2
+      win_ec2_action: destroy
+      tags: cleanup
+  post_tasks:
+    - name: remove test security group for win ec2
+      ec2_group:
+        aws_access_key: '{{aws_access_key|default(omit)}}'
+        aws_secret_key: '{{aws_secret_key|default(omit)}}'
+        region: '{{win_ec2_region}}'
+        name: '{{win_ec2_security_group}}'
+        description: ''
+        state: absent
+      tags: cleanup
+    - name: remove test keypair for win ec2
+      ec2_key:
+        aws_access_key: '{{aws_access_key|default(omit)}}'
+        aws_secret_key: '{{aws_secret_key|default(omit)}}'
+        region: '{{win_ec2_region}}'
+        name: '{{win_ec2_key_name}}'
+        state: absent
+      tags: cleanup
+    #- name: remove test keypair
+    #  file:
+    #    path: "{{item}}"
+    #    state: absent
+    #  with_items:
+    #    - "{{win_ec2_private_key_path}}"
+    #    - "{{win_ec2_private_key_path}}.pub"
+    #  tags: cleanup
